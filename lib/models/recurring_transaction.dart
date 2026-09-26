@@ -1,10 +1,12 @@
-enum TransactionType { expense, income, transfer }
+import 'transaction.dart';
 
-class FinanceTransaction {
+enum RecurrenceFrequency { weekly, monthly, yearly }
+
+class RecurringTransaction {
   final String id;
   final TransactionType type;
   final double amount;
-  final String title;          // NEW
+  final String title;
   final String? accountId;
   final String? fromAccountId;
   final String? toAccountId;
@@ -12,15 +14,17 @@ class FinanceTransaction {
   final String? note;
   final String? merchant;
   final List<String> tags;
-  final TransactionStatus status;
-  final DateTime date;
   final bool isEcommerce;
+  final RecurrenceFrequency frequency;
+  final DateTime nextDueDate;
+  final bool isActive;
+  final DateTime createdAt;
 
-  FinanceTransaction({
+  const RecurringTransaction({
     required this.id,
     required this.type,
     required this.amount,
-    required this.title,      // NEW
+    required this.title,
     this.accountId,
     this.fromAccountId,
     this.toAccountId,
@@ -28,10 +32,10 @@ class FinanceTransaction {
     this.note,
     this.merchant,
     this.tags = const [],
-    this.status = TransactionStatus.cleared,
-    required this.date,
-    this.isEcommerce = false,
+    required this.isEcommerce,
+    required this.frequency,
+    required this.nextDueDate,
+    required this.isActive,
+    required this.createdAt,
   });
 }
-
-enum TransactionStatus { pending, cleared }

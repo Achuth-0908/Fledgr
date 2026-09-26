@@ -25,12 +25,17 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
   String? toAccountId;
   String? categoryId;
   String? note;
+  String? merchant;
+  late List<String> tags;
+  late TransactionStatus status;
   late DateTime date;
 
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   final _titleController = TextEditingController();
   final _noteController = TextEditingController();
+  final _merchantController = TextEditingController();
+  final _tagsController = TextEditingController();
 
   @override
   void initState() {
@@ -47,12 +52,17 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
 
     isEcommerce = tx.isEcommerce;
 
-    accountId = tx.accountId;
+    accountId = tx.accountId ?? tx.fromAccountId;
     toAccountId = tx.toAccountId;
     categoryId = tx.categoryId;
 
     note = tx.note;
     _noteController.text = tx.note ?? "";
+    merchant = tx.merchant;
+    _merchantController.text = tx.merchant ?? "";
+    tags = tx.tags;
+    _tagsController.text = tx.tags.join(', ');
+    status = tx.status;
 
     date = tx.date;
   }
@@ -62,6 +72,8 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
     _amountController.dispose();
     _titleController.dispose();
     _noteController.dispose();
+    _merchantController.dispose();
+    _tagsController.dispose();
     super.dispose();
   }
 
@@ -137,6 +149,20 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
 
               const SizedBox(height: 20),
 
+              const SectionTitle("Merchant / Payee (Optional)"),
+              AppCard(
+                child: TextFormField(
+                  controller: _merchantController,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: "e.g. Swiggy, Employer",
+                  ),
+                  onChanged: (value) => merchant = value,
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
               // AMOUNT
               const SectionTitle("Amount"),
               AppCard(
@@ -148,8 +174,12 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
                     prefixText: "₹ ",
                     border: InputBorder.none,
                   ),
-                  validator: (v) =>
-                      (v == null || v.isEmpty) ? "Enter amount" : null,
+                  validator: (v) {
+                    final parsed = double.tryParse(v ?? '');
+                    return parsed == null || !parsed.isFinite || parsed <= 0
+                        ? "Enter an amount greater than zero"
+                        : null;
+                  },
                   onChanged: (v) => amount = double.tryParse(v) ?? 0,
                 ),
               ),
@@ -252,6 +282,20 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
                 ),
               ),
 
+              if (selectedType != TransactionType.transfer) ...[
+                const SizedBox(height: 12),
+                AppCard(
+                  child: SwitchListTile(
+                    title: const Text("Pending transaction"),
+                    subtitle: const Text("Does not affect your account balance yet"),
+                    value: status == TransactionStatus.pending,
+                    onChanged: (value) => setState(() {
+                      status = value ? TransactionStatus.pending : TransactionStatus.cleared;
+                    }),
+                  ),
+                ),
+              ],
+
               // DATE
               const SectionTitle("Date"),
               AppCard(
@@ -284,6 +328,19 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
                     hintText: "Add a note...",
                   ),
                   onChanged: (v) => note = v,
+                ),
+              ),
+
+              const SizedBox(height: 20),
+              const SectionTitle("Tags (Optional)"),
+              AppCard(
+                child: TextFormField(
+                  controller: _tagsController,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: "work, essential, tax",
+                  ),
+                  onChanged: (value) => tags = value.split(','),
                 ),
               ),
 
@@ -365,7 +422,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
   }
 
   // SAVE
-  void _saveChanges() {
+  Future<void> _saveChanges() async {
     if (!_formKey.currentState!.validate()) return;
 
     final data = Provider.of<DataService>(context, listen: false);
@@ -413,11 +470,19 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
           selectedType == TransactionType.transfer ? accountId : null,
       categoryId: categoryId,
       note: note,
+      merchant: merchant,
+      tags: tags,
+      status: selectedType == TransactionType.transfer
+          ? TransactionStatus.cleared
+          : status,
       date: date,
     );
 
-    data.editTransaction(widget.tx.id, updated);
-
-    Navigator.pop(context);
+    try {
+      await data.editTransaction(widget.tx.id, updated);
+      if (mounted) Navigator.pop(context);
+    } on FinanceValidationException catch (error) {
+      if (mounted) _showError(error.message);
+    }
   }
 }

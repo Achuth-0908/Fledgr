@@ -127,15 +127,20 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
     );
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    Provider.of<DataService>(context, listen: false).editAccount(
-      id: widget.account.id,
-      name: nameCtrl.text.trim(),
-      type: selectedCategory,
-    );
-
-    Navigator.pop(context);
+    try {
+      await Provider.of<DataService>(context, listen: false).editAccount(
+        id: widget.account.id,
+        name: nameCtrl.text.trim(),
+        type: selectedCategory,
+      );
+      if (mounted) Navigator.pop(context);
+    } on FinanceValidationException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
   }
 }

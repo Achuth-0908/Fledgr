@@ -28,12 +28,18 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   final _amountController = TextEditingController();
   final _titleController = TextEditingController();
   final _noteController = TextEditingController();
+  final _merchantController = TextEditingController();
+  final _tagsController = TextEditingController();
+  TransactionStatus status = TransactionStatus.cleared;
 
 
   @override
   void dispose() {
     _amountController.dispose();
     _titleController.dispose();
+    _noteController.dispose();
+    _merchantController.dispose();
+    _tagsController.dispose();
     super.dispose();
   }
 
@@ -128,9 +134,27 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     hintText: "0.00",
                     border: InputBorder.none,
                   ),
-                  validator: (v) =>
-                      (v == null || v.isEmpty) ? "Enter amount" : null,
+                  validator: (v) {
+                    final parsed = double.tryParse(v ?? '');
+                    return parsed == null || !parsed.isFinite || parsed <= 0
+                        ? "Enter an amount greater than zero"
+                        : null;
+                  },
                   onChanged: (v) => amount = double.tryParse(v) ?? 0,
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              const SectionTitle("Merchant / Payee (Optional)"),
+              AppCard(
+                child: TextField(
+                  controller: _merchantController,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    hintText: "e.g. Swiggy, Employer",
+                    border: InputBorder.none,
+                  ),
                 ),
               ),
 
@@ -299,6 +323,20 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 ),
               ),
 
+              if (selectedType != TransactionType.transfer) ...[
+                const SizedBox(height: 12),
+                AppCard(
+                  child: SwitchListTile(
+                    title: const Text("Pending transaction"),
+                    subtitle: const Text("Does not affect your account balance yet"),
+                    value: status == TransactionStatus.pending,
+                    onChanged: (value) => setState(() {
+                      status = value ? TransactionStatus.pending : TransactionStatus.cleared;
+                    }),
+                  ),
+                ),
+              ],
+
               // DATE
               const SectionTitle("Date"),
               AppCard(
@@ -340,6 +378,18 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   ),
                   maxLines: 2,
                   onChanged: (v) => note = v,
+                ),
+              ),
+
+              const SizedBox(height: 20),
+              const SectionTitle("Tags (Optional)"),
+              AppCard(
+                child: TextField(
+                  controller: _tagsController,
+                  decoration: const InputDecoration(
+                    hintText: "work, essential, tax",
+                    border: InputBorder.none,
+                  ),
                 ),
               ),
 
@@ -432,66 +482,54 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   }
 
   // ========= SAVE TRANSACTION =========
-  void _saveTransaction() {
+  Future<void> _saveTransaction() async {
     if (!_formKey.currentState!.validate()) return;
 
     final data = Provider.of<DataService>(context, listen: false);
 
-    // ================= EXPENSE CHECK =================
-    if (selectedType == TransactionType.expense) {
-      final acc = data.allAccounts.firstWhere((a) => a.id == accountId);
-
-      if (acc.balance < amount) {
-        _showError(
-            "This account has only ₹${acc.balance.toStringAsFixed(2)} available.");
-        return;
+    try {
+      if (selectedType == TransactionType.expense) {
+        await data.addExpense(
+          amount: amount,
+          accountId: accountId!,
+          categoryId: categoryId!,
+          title: title,
+          isEcommerce: isEcommerce,
+          note: note,
+          merchant: _merchantController.text,
+          tags: _tagsController.text.split(','),
+          status: status,
+          date: selectedDate,
+        );
+      } else if (selectedType == TransactionType.income) {
+        await data.addIncome(
+          amount: amount,
+          accountId: accountId!,
+          categoryId: categoryId!,
+          title: title,
+          isEcommerce: isEcommerce,
+          note: note,
+          merchant: _merchantController.text,
+          tags: _tagsController.text.split(','),
+          status: status,
+          date: selectedDate,
+        );
+      } else {
+        await data.addTransfer(
+          amount: amount,
+          fromAccountId: accountId!,
+          toAccountId: toAccountId!,
+          title: title,
+          isEcommerce: isEcommerce,
+          note: note,
+          merchant: _merchantController.text,
+          tags: _tagsController.text.split(','),
+          date: selectedDate,
+        );
       }
-
-      data.addExpense(
-        amount: amount,
-        accountId: accountId!,
-        categoryId: categoryId!,
-        title: title,
-        isEcommerce: isEcommerce,
-        note: note,
-        date: selectedDate,
-      );
+      if (mounted) Navigator.pop(context);
+    } on FinanceValidationException catch (error) {
+      if (mounted) _showError(error.message);
     }
-
-    // ================= INCOME =================
-    else if (selectedType == TransactionType.income) {
-      data.addIncome(
-        amount: amount,
-        accountId: accountId!,
-        categoryId: categoryId!,
-        title: title,
-        isEcommerce: isEcommerce,
-        note: note,
-        date: selectedDate,
-      );
-    }
-
-    // ================= TRANSFER CHECK =================
-    else {
-      final from = data.allAccounts.firstWhere((a) => a.id == accountId);
-
-      if (from.balance < amount) {
-        _showError(
-            "Source account has only ₹${from.balance.toStringAsFixed(2)} available.");
-        return;
-      }
-
-      data.addTransfer(
-        amount: amount,
-        fromAccountId: accountId!,
-        toAccountId: toAccountId!,
-        title: title,
-        isEcommerce: isEcommerce,
-        note: note,
-        date: selectedDate,
-      );
-    }
-
-    Navigator.pop(context);
   }
 }

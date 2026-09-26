@@ -58,7 +58,7 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
                     border: InputBorder.none,
                   ),
                   validator: (v) =>
-                      v == null || v.isEmpty ? "Required" : null,
+                      v == null || v.trim().isEmpty ? "Required" : null,
                 ),
               ),
 
@@ -98,8 +98,12 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
                     border: InputBorder.none,
                     prefixText: "₹ ",
                   ),
-                  validator: (v) =>
-                      v == null || v.isEmpty ? "Required" : null,
+                  validator: (v) {
+                    final parsed = double.tryParse(v ?? '');
+                    return parsed == null || !parsed.isFinite
+                        ? 'Enter a valid amount'
+                        : null;
+                  },
                 ),
               ),
 
@@ -129,16 +133,21 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
     );
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    Provider.of<DataService>(context, listen: false).addAccount(
-      name: nameCtrl.text.trim(),
-      type: selectedCategory,
-      icon: selectedCategory.icon,
-      openingBalance: double.tryParse(balanceCtrl.text) ?? 0,
-    );
-
-    Navigator.pop(context);
+    try {
+      await Provider.of<DataService>(context, listen: false).addAccount(
+        name: nameCtrl.text.trim(),
+        type: selectedCategory,
+        icon: selectedCategory.icon,
+        openingBalance: double.tryParse(balanceCtrl.text) ?? 0,
+      );
+      if (mounted) Navigator.pop(context);
+    } on FinanceValidationException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
   }
 }

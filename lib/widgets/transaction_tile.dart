@@ -35,30 +35,30 @@ class _TransactionTileState extends State<TransactionTile> {
     // ---------- TYPE ----------
     switch (tx.type) {
       case TransactionType.expense:
-        final cat = data.categories.firstWhere((c) => c.id == tx.categoryId);
-        final acc = data.allAccounts.firstWhere((a) => a.id == tx.accountId);
-        category = cat.name;
-        account = acc.name;
-        catIcon = cat.icon;
+        final cat = data.categoryById(tx.categoryId);
+        final acc = data.accountById(tx.accountId);
+        category = cat?.name ?? 'Archived category';
+        account = acc?.name ?? 'Archived account';
+        catIcon = cat?.icon ?? Icons.category;
         amountText = "- ₹${tx.amount.toStringAsFixed(2)}";
         amountColor = Colors.redAccent;
         break;
 
       case TransactionType.income:
-        final cat = data.categories.firstWhere((c) => c.id == tx.categoryId);
-        final acc = data.allAccounts.firstWhere((a) => a.id == tx.accountId);
-        category = cat.name;
-        account = acc.name;
-        catIcon = cat.icon;
+        final cat = data.categoryById(tx.categoryId);
+        final acc = data.accountById(tx.accountId);
+        category = cat?.name ?? 'Archived category';
+        account = acc?.name ?? 'Archived account';
+        catIcon = cat?.icon ?? Icons.category;
         amountText = "+ ₹${tx.amount.toStringAsFixed(2)}";
         amountColor = const Color(0xFF43A047);
         break;
 
       case TransactionType.transfer:
-        final from = data.allAccounts.firstWhere((a) => a.id == tx.fromAccountId);
-        final to = data.allAccounts.firstWhere((a) => a.id == tx.toAccountId);
+        final from = data.accountById(tx.fromAccountId);
+        final to = data.accountById(tx.toAccountId);
         category = "Transfer";
-        account = "${from.name} → ${to.name}";
+        account = "${from?.name ?? 'Archived account'} → ${to?.name ?? 'Archived account'}";
         catIcon = Icons.swap_horiz;
         amountText = "₹${tx.amount.toStringAsFixed(2)}";
         break;
@@ -199,6 +199,10 @@ class _TransactionTileState extends State<TransactionTile> {
                       Icons.public,
                       size: 15,
                     ),
+                  ],
+                  if (tx.status == TransactionStatus.pending) ...[
+                    const SizedBox(width: 6),
+                    const Icon(Icons.schedule, size: 15),
                   ],
                 ],
               ),

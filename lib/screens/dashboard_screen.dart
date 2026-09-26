@@ -7,6 +7,10 @@ import '../widgets/section_title.dart';
 import '../widgets/transaction_tile.dart';
 import '../theme/theme_provider.dart';
 import 'settings_screen.dart';
+import 'budgets_screen.dart';
+import 'categories_screen.dart';
+import 'goals_screen.dart';
+import 'recurring_transactions_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -15,6 +19,10 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final data = Provider.of<DataService>(context);
     final colors = Theme.of(context).colorScheme;
+
+    if (data.isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -67,10 +75,10 @@ class DashboardScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text("Income"),
+                        const Text("This month's income"),
                         const SizedBox(height: 8),
                         Text(
-                          "₹${data.totalIncome.toStringAsFixed(2)}",
+                          "₹${data.currentMonthIncome.toStringAsFixed(2)}",
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: colors.inversePrimary,
@@ -88,10 +96,10 @@ class DashboardScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text("Expenses"),
+                        const Text("This month's expenses"),
                         const SizedBox(height: 8),
                         Text(
-                          "₹${data.totalExpense.toStringAsFixed(2)}",
+                          "₹${data.currentMonthExpense.toStringAsFixed(2)}",
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: colors.inversePrimary,
@@ -103,6 +111,50 @@ class DashboardScreen extends StatelessWidget {
                 ),
               ],
             ),
+
+            const SizedBox(height: 20),
+
+            const SectionTitle("Plan your money"),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _PlannerAction(
+                  icon: Icons.pie_chart_outline,
+                  label: 'Budgets',
+                  onTap: () => _open(context, const BudgetsScreen()),
+                ),
+                _PlannerAction(
+                  icon: Icons.flag_outlined,
+                  label: 'Goals',
+                  onTap: () => _open(context, const GoalsScreen()),
+                ),
+                _PlannerAction(
+                  icon: Icons.repeat,
+                  label: 'Bills',
+                  onTap: () => _open(context, const RecurringTransactionsScreen()),
+                ),
+                _PlannerAction(
+                  icon: Icons.category_outlined,
+                  label: 'Categories',
+                  onTap: () => _open(context, const CategoriesScreen()),
+                ),
+              ],
+            ),
+
+            if (data.dueRecurring.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              SectionTitle("${data.dueRecurring.length} bill${data.dueRecurring.length == 1 ? '' : 's'} due"),
+              AppCard(
+                child: ListTile(
+                  leading: const Icon(Icons.notifications_active_outlined),
+                  title: Text(data.dueRecurring.first.title),
+                  subtitle: const Text('Open Bills to record it.'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _open(context, const RecurringTransactionsScreen()),
+                ),
+              ),
+            ],
 
             const SizedBox(height: 20),
 
@@ -135,4 +187,27 @@ class DashboardScreen extends StatelessWidget {
       ),
     );
   }
+
+  void _open(BuildContext context, Widget page) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+  }
+}
+
+class _PlannerAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _PlannerAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => ActionChip(
+        avatar: Icon(icon, size: 18),
+        label: Text(label),
+        onPressed: onTap,
+      );
 }

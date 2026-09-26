@@ -42,9 +42,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               t.date.isAfter(filter.dateRange!.end))) return false;
 
       if (filter.search.isNotEmpty &&
-          !(t.note ?? "")
-              .toLowerCase()
-              .contains(filter.search.toLowerCase())) return false;
+          ![
+            t.title,
+            t.note ?? '',
+            t.merchant ?? '',
+            t.tags.join(' '),
+          ].join(' ').toLowerCase().contains(filter.search.toLowerCase())) return false;
 
       return true;
     }).toList()
@@ -288,7 +291,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
             TextField(
               decoration:
-                  const InputDecoration(labelText: "Search note"),
+                  const InputDecoration(labelText: "Search title, payee, note, or tag"),
               onChanged: (v) => setState(() => filter.search = v),
             ),
           ],
